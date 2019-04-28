@@ -1,0 +1,30 @@
+<resources>
+    <string name="app_name">List MVVM</string>
+
+    <!-- DroneFragment -->
+    <string name="frag_no_results">No results</string>
+
+    <!-- DetailsFragment -->
+    <string name="frag_details_title_name">Name:</string>
+    <string name="frag_details_title_type">Type:</string>
+    <string name="frag_details_title_fc">Flight Controller:</string>
+    <string name="frag_details_title_size">Prop Size:</string>
+    <string name="frag_details_value_empty">Unknown</string>
+
+    <!-- Item -->
+    <string name="item_no_name">NoName</string>
+    <string name="item_no_type">NoType</string>
+    <string name="item_no_size">NoSize</string>
+    <string name="item_no_fc">NoFC</string>
+
+    <!-- Image Content Description -->
+    <string name="icd_item_image">Represent an image of drone</string>
+
+    <!-- SnackBar Messages -->
+    <string name="msg_no_drones">No Drones</string>
+    <string name="msg_error">Error</string>
+
+    <!-- TODO: Remove or change this placeholder text -->
+  <string name="hello_blank_fragment">Hello blank fragment</string>
+
+</resources>

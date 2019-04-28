@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+  <data>
+    <import type="android.view.View.OnClickListener"/>
+
+    <variable
+        name="drone"
+        type="com.haejung.template.data.Drone"/>
+
+    <variable
+        name="listener"
+        type="com.haejung.template.drones.DronesFragment.DroneItemListener"/>
+  </data>
+
+  <androidx.cardview.widget.CardView
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_margin="5dp"
+      android:onClick="@{() -> listener.onDroneClick(drone)}">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:id="@+id/item_container"
+        android:paddingBottom="16dp">
+
+      <ImageView
+          android:id="@+id/imageDrone"
+          android:layout_width="0dp"
+          android:layout_height="200dp"
+          app:glideImageUrl="@{drone.image}"
+          app:layout_constraintStart_toStartOf="parent"
+          app:layout_constraintTop_toTopOf="parent"
+          app:layout_constraintEnd_toEndOf="parent"
+          app:srcCompat="@mipmap/ic_launcher_round"
+          android:contentDescription="@string/icd_item_image"
+          android:scaleType="centerCrop"/>
+
+      <TextView
+          android:id="@+id/textDroneName"
+          android:text="@{drone.name}"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:textAppearance="@style/TextAppearance.AppCompat.Large"
+          android:layout_marginStart="8dp"
+          app:layout_constraintStart_toEndOf="@+id/imageThumbnail"
+          app:layout_constraintTop_toTopOf="@+id/imageThumbnail"
+          android:textColor="@android:color/black"/>
+
+      <TextView
+          android:id="@+id/textDroneType"
+          android:text="@{drone.type}"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:textAppearance="@style/TextAppearance.AppCompat.Small"
+          android:layout_marginTop="4dp"
+          app:layout_constraintTop_toBottomOf="@+id/textDroneName"
+          app:layout_constraintStart_toStartOf="@+id/textDroneName"/>
+
+      <ImageView
+          android:id="@+id/imageThumbnail"
+          android:layout_width="52dp"
+          android:layout_height="52dp"
+          android:layout_marginTop="16dp"
+          android:layout_marginStart="16dp"
+          app:srcCompat="@mipmap/ic_launcher_round"
+          app:layout_constraintTop_toBottomOf="@+id/imageDrone"
+          app:layout_constraintStart_toStartOf="parent"
+          app:glideImageUrl="@{drone.image}"
+          android:contentDescription="@string/icd_item_image"/>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+  </androidx.cardview.widget.CardView>
+</layout>
