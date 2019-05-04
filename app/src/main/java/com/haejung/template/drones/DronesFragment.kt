@@ -72,7 +72,12 @@ class DronesFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        viewDataBinding.droneViewModel?.start()
+        viewDataBinding.droneViewModel?.subscribe()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        viewDataBinding.droneViewModel?.unsubscribe()
     }
 
     private fun openDroneDetailsUI(droneName: String) {

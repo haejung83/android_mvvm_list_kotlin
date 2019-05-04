@@ -29,7 +29,12 @@ class DetailsFragment(
 
     override fun onResume() {
         super.onResume()
-        viewDataBinding.detailsViewModel?.start(droneName)
+        viewDataBinding.detailsViewModel?.subscribe(droneName)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        viewDataBinding.detailsViewModel?.unsubscribe()
     }
 
     companion object {

@@ -1,125 +1,149 @@
 package com.haejung.template.data.source
 
 import com.haejung.template.data.Drone
+import io.reactivex.Completable
+import io.reactivex.Flowable
+import io.reactivex.Single
+import io.reactivex.functions.BiFunction
+import java.util.*
+import kotlin.collections.LinkedHashMap
+import kotlin.math.max
 
 class DroneRepository(
     private val droneRemoteDataSource: DronesDataSource,
     private val droneLocalDataSource: DronesDataSource
 ) : DronesDataSource {
 
-    val cachedDrones: LinkedHashMap<String, Drone> = LinkedHashMap()
-    var cacheIsDirty = true
+    private val cachedDrones: LinkedHashMap<String, Drone> = LinkedHashMap()
+    private var cacheIsDirty = false
 
-    override fun getDrones(callback: DronesDataSource.LoadDronesCallback) {
-        if (cachedDrones.isNotEmpty() && !cacheIsDirty) {
-            callback.onDronesLoaded(cachedDrones.values.toList())
-        }
+    override fun getDrones(): Flowable<List<Drone>> {
+        if (cachedDrones.isNotEmpty() && !cacheIsDirty)
+            return Flowable
+                .fromIterable(cachedDrones.values)
+                .toList()
+                .toFlowable()
 
-        if (cacheIsDirty) {
-            // Get from remote and replace local and cache
-            getFromRemoteDataSource(callback)
+        val remoteDrones = getRemoteAndSaveCacheLocal()
+
+        return if (cacheIsDirty) {
+            remoteDrones
         } else {
-            droneLocalDataSource.getDrones(object : DronesDataSource.LoadDronesCallback {
-                override fun onDronesLoaded(drones: List<Drone>) {
-                    refreshCache(drones)
-                    callback.onDronesLoaded(drones)
+            val localDrone = getLocalAndSaveCache()
+            Flowable.concat(localDrone, remoteDrones)
+                .filter {
+                    it.isNotEmpty()
                 }
-
-                override fun onDataNotAvailable() {
-                    getFromRemoteDataSource(callback)
-                }
-            })
+                .firstOrError()
+                .toFlowable()
         }
     }
 
-    private fun getFromRemoteDataSource(callback: DronesDataSource.LoadDronesCallback) {
-        droneRemoteDataSource.getDrones(object : DronesDataSource.LoadDronesCallback {
-            override fun onDronesLoaded(drones: List<Drone>) {
-                refreshCache(drones)
-                refreshLocalDataSource(drones)
-                callback.onDronesLoaded(cachedDrones.values.toList())
+    private fun getLocalAndSaveCache(): Flowable<List<Drone>> =
+        droneLocalDataSource
+            .getDrones()
+            .flatMap { drones ->
+                Flowable.fromIterable(drones)
+                    .doOnNext {
+                        cachedDrones[it.name] = it
+                    }
+                    .toList()
+                    .toFlowable()
             }
 
-            override fun onDataNotAvailable() {
-                callback.onDataNotAvailable()
+    private fun getRemoteAndSaveCacheLocal(): Flowable<List<Drone>> =
+        droneRemoteDataSource
+            .getDrones()
+            .flatMap { drones ->
+                Flowable.fromIterable(drones)
+                    .doOnNext { drone ->
+                        droneLocalDataSource
+                            .saveDrone(drone)
+                            .doOnComplete {
+                                cachedDrones[drone.name] = drone
+                            }
+                            .subscribe()
+                    }
+                    .toList()
+                    .toFlowable()
             }
-        })
-    }
+            .doOnComplete {
+                cacheIsDirty = false
+            }
 
-    private fun refreshCache(drones: List<Drone>) {
-        cachedDrones.clear()
-        drones.forEach {
-            cacheAndPerform(it) {}
-        }
-        cacheIsDirty = false
-    }
-
-    private fun refreshLocalDataSource(drones: List<Drone>) {
-        droneLocalDataSource.deleteAllDrones()
-        drones.forEach {
-            droneLocalDataSource.saveDrone(it)
-        }
-    }
-
-    override fun getDrone(name: String, callback: DronesDataSource.GetDroneCallback) {
-        val cached = cachedDrones[name]
-
-        if (cached != null) {
-            callback.onDroneLoaded(cached)
-            return
+    override fun getDrone(name: String): Flowable<Optional<Drone>> {
+        // Return drone if name exists in cache
+        if (cachedDrones.containsKey(name)) {
+            val drone = cachedDrones[name]?.let { Optional.of(it) }
+            return Flowable.just(drone)
         }
 
-        droneLocalDataSource.getDrone(name, object : DronesDataSource.GetDroneCallback {
-            override fun onDroneLoaded(drone: Drone) {
-                cacheAndPerform(drone) {
-                    callback.onDroneLoaded(it)
+        // Get a drone from local database and insert it into cache with name
+        val localDrone = droneLocalDataSource
+            .getDrone(name)
+            .doOnNext {
+                if (it.isPresent) {
+                    val drone = it.get()
+                    cachedDrones[drone.name] = drone
                 }
             }
 
-            override fun onDataNotAvailable() {
-                droneRemoteDataSource.getDrone(name, object : DronesDataSource.GetDroneCallback {
-                    override fun onDroneLoaded(drone: Drone) {
-                        cacheAndPerform(drone) {
-                            callback.onDroneLoaded(it)
+        // Get a drone from remote and then insert it into local database and cache
+        val remoteDrone = droneRemoteDataSource
+            .getDrone(name)
+            .doOnNext {
+                if (it.isPresent) {
+                    val drone = it.get()
+                    // FIXME: This is a ridiculous behavior which subscribe the saveDrone method
+                    droneLocalDataSource
+                        .saveDrone(drone)
+                        .doOnComplete {
+                            cachedDrones[drone.name] = drone
                         }
-                    }
-
-                    override fun onDataNotAvailable() {
-                        callback.onDataNotAvailable()
-                    }
-                })
+                        .subscribe()
+                }
             }
-        })
 
+        return Flowable
+            .concat(localDrone, remoteDrone)
+            .firstElement()
+            .toFlowable()
     }
 
-    override fun saveDrone(drone: Drone) {
-        cacheAndPerform(drone) {
-            droneRemoteDataSource.saveDrone(it)
-            droneLocalDataSource.saveDrone(it)
+    override fun saveDrone(drone: Drone): Completable {
+        val saveRemote = droneRemoteDataSource.saveDrone(drone)
+        val saveLocal = droneLocalDataSource.saveDrone(drone)
+        return Completable.concat(listOf(saveRemote, saveLocal))
+            .doOnComplete {
+                cachedDrones[drone.name] = drone
+            }
+    }
+
+    override fun refreshDrones(): Completable =
+        Completable
+            .complete()
+            .doOnComplete {
+                cacheIsDirty = true
+            }
+
+    override fun deleteAllDrones(): Single<Int> {
+        val deleteAllRemote = droneRemoteDataSource.deleteAllDrones()
+        val deleteAllLocal = droneLocalDataSource.deleteAllDrones()
+        return Single
+            .zip(deleteAllRemote, deleteAllLocal, DeleteBiFunction)
+    }
+
+    override fun deleteDrone(name: String): Single<Int> {
+        val deleteRemote = droneRemoteDataSource.deleteDrone(name)
+        val deleteLocal = droneLocalDataSource.deleteDrone(name)
+        return Single
+            .zip(deleteRemote, deleteLocal, DeleteBiFunction)
+    }
+
+    private object DeleteBiFunction : BiFunction<Int, Int, Int> {
+        override fun apply(t1: Int, t2: Int): Int {
+            return if (t1 == t2) t1 else max(t1, t2)
         }
-    }
-
-    override fun refreshDrones() {
-        cacheIsDirty = true
-    }
-
-    override fun deleteAllDrones() {
-        droneRemoteDataSource.deleteAllDrones()
-        droneLocalDataSource.deleteAllDrones()
-        cachedDrones.clear()
-    }
-
-    override fun deleteDrone(name: String) {
-        droneRemoteDataSource.deleteDrone(name)
-        droneLocalDataSource.deleteDrone(name)
-        cachedDrones.remove(name)
-    }
-
-    private inline fun cacheAndPerform(drone: Drone, perform: (Drone) -> Unit) {
-        val cached = drone.copy()
-        cachedDrones[cached.name] = cached
-        perform(cached)
     }
 
     companion object {

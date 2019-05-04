@@ -1,28 +1,21 @@
 package com.haejung.template.data.source
 
 import com.haejung.template.data.Drone
+import io.reactivex.Completable
+import io.reactivex.Flowable
+import io.reactivex.Single
+import java.util.*
 
 interface DronesDataSource {
+    fun getDrones(): Flowable<List<Drone>>
 
-    interface LoadDronesCallback {
-        fun onDronesLoaded(drones: List<Drone>)
-        fun onDataNotAvailable()
-    }
+    fun getDrone(name: String): Flowable<Optional<Drone>>
 
-    interface GetDroneCallback {
-        fun onDroneLoaded(drone: Drone)
-        fun onDataNotAvailable()
-    }
+    fun saveDrone(drone: Drone): Completable
 
-    fun getDrones(callback: LoadDronesCallback)
+    fun refreshDrones(): Completable
 
-    fun getDrone(name: String, callback: GetDroneCallback)
+    fun deleteAllDrones(): Single<Int>
 
-    fun saveDrone(drone: Drone)
-
-    fun refreshDrones()
-
-    fun deleteAllDrones()
-
-    fun deleteDrone(name: String)
+    fun deleteDrone(name: String): Single<Int>
 }

@@ -3,57 +3,35 @@ package com.haejung.template.data.source.local
 import com.haejung.template.data.Drone
 import com.haejung.template.data.source.DronesDataSource
 import com.haejung.template.util.AppExecutors
+import io.reactivex.Completable
+import io.reactivex.Flowable
+import io.reactivex.Single
+import java.util.*
 
 class DroneLocalDataSource private constructor(
     private val appExecutor: AppExecutors,
     private val droneDao: DroneDao
 ) : DronesDataSource {
 
-    override fun getDrones(callback: DronesDataSource.LoadDronesCallback) {
-        appExecutor.diskIO.execute {
-            val drones: List<Drone> = droneDao.findAll()
-            appExecutor.mainThread.execute {
-                if (drones.isEmpty())
-                    callback.onDataNotAvailable()
-                else
-                    callback.onDronesLoaded(drones)
-            }
-        }
-    }
+    // Get all drone
+    override fun getDrones(): Flowable<List<Drone>> = droneDao
+        .findAll()
 
-    override fun getDrone(name: String, callback: DronesDataSource.GetDroneCallback) {
-        appExecutor.diskIO.execute {
-            val drones: List<Drone> = droneDao.findByName(name)
-            appExecutor.mainThread.execute {
-                if (drones.isNotEmpty())
-                    callback.onDroneLoaded(drones[0])
-                else
-                    callback.onDataNotAvailable()
-            }
-        }
-    }
+    // Get a drone with name
+    override fun getDrone(name: String): Flowable<Optional<Drone>> = droneDao
+        .findByName(name)
+        .flatMap { drones -> Flowable.fromIterable(drones) }
+        .firstElement()
+        .map { Optional.of(it) }
+        .toFlowable()
 
-    override fun saveDrone(drone: Drone) {
-        appExecutor.diskIO.execute {
-            droneDao.save(drone)
-        }
-    }
+    override fun saveDrone(drone: Drone): Completable = droneDao.save(drone)
 
-    override fun refreshDrones() {
-        TODO("Not implemented yet")
-    }
+    override fun refreshDrones(): Completable = Completable.complete()
 
-    override fun deleteAllDrones() {
-        appExecutor.diskIO.execute {
-            droneDao.deleteAll()
-        }
-    }
+    override fun deleteAllDrones(): Single<Int> = droneDao.deleteAll()
 
-    override fun deleteDrone(name: String) {
-        appExecutor.diskIO.execute {
-            droneDao.deleteByName(name)
-        }
-    }
+    override fun deleteDrone(name: String): Single<Int> = droneDao.deleteByName(name)
 
     companion object {
         private var instance: DroneLocalDataSource? = null

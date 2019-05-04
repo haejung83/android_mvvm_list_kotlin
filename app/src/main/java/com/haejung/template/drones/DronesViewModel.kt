@@ -8,11 +8,19 @@ import com.haejung.template.LiveEvent
 import com.haejung.template.R
 import com.haejung.template.data.Drone
 import com.haejung.template.data.source.DroneRepository
-import com.haejung.template.data.source.DronesDataSource
+import com.orhanobut.logger.Logger
+import io.reactivex.android.schedulers.AndroidSchedulers
+import io.reactivex.disposables.CompositeDisposable
+import io.reactivex.schedulers.Schedulers
 
 class DronesViewModel(
     private val dronesRepository: DroneRepository
 ) : ViewModel() {
+
+    private var isFirstLoad = true
+    private val disposable by lazy {
+        CompositeDisposable()
+    }
 
     private val _items = MutableLiveData<List<Drone>>().apply { value = emptyList() }
     val items: LiveData<List<Drone>>
@@ -34,24 +42,46 @@ class DronesViewModel(
         it.isEmpty()
     }
 
-    fun start() {
+    fun subscribe() {
+        Logger.d("subscribe")
+        if (isFirstLoad) {
+            disposable.add(dronesRepository
+                .refreshDrones()
+                .subscribe {
+                    isFirstLoad = false
+                    loadDrones()
+                }
+            )
+            return
+        } else
+            loadDrones()
+    }
+
+    private fun loadDrones() {
         _dataLoading.value = true
+        disposable.add(
+            dronesRepository
+                .getDrones()
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe({ drones ->
+                    Logger.d("onNext: drones")
+                    _dataLoading.value = false
+                    if (drones.isNotEmpty())
+                        _items.value = drones
+                    else
+                        showSnackBarMessage(R.string.msg_no_drones)
+                }, {
+                    Logger.d("onError: ${it.message}")
+                    _dataLoading.value = false
+                    showSnackBarMessage(R.string.msg_error)
+                })
+        )
+    }
 
-        dronesRepository.getDrones(object : DronesDataSource.LoadDronesCallback {
-            override fun onDronesLoaded(drones: List<Drone>) {
-                _dataLoading.value = false
-
-                if (drones.isNotEmpty())
-                    _items.value = drones
-                else
-                    showSnackBarMessage(R.string.msg_no_drones)
-            }
-
-            override fun onDataNotAvailable() {
-                _dataLoading.value = false
-                showSnackBarMessage(R.string.msg_error)
-            }
-        })
+    fun unsubscribe() {
+        Logger.d("unsubscribe")
+        disposable.clear()
     }
 
     internal fun openDrone(name: String) {
