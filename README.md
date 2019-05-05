@@ -1,5 +1,5 @@
 # [List] Android MVVM Pattern
-> 간단한 MVVM을 사용한 List 화면 Android 예제 입니다. 
+> RxJava와 함께 간단한 MVVM을 사용한 List 화면 Android 예제 입니다. 
 
 
 
@@ -9,6 +9,10 @@
   * DataBinding
   * LiveData
   * Kotlin
+  * RxJava
+    * RxAndroid
+    * RxJava Retrofit adapter
+    * RxJava Room adapter
 
   
 
