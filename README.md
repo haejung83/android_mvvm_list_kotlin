@@ -1,4 +1,4 @@
-# [List] Android MVVM Pattern
+# [List] Android MVVM Pattern with RxJava
 > RxJava와 함께 간단한 MVVM을 사용한 List 화면 Android 예제 입니다. 
 
 
