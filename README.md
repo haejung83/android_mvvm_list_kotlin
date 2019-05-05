@@ -2,6 +2,8 @@
 > 간단한 MVVM을 사용한 List 화면 Android 예제 입니다. 
 
 
+* RxJava Version
+  * [Branch](https://github.com/haejung83/android_mvvm_list_kotlin/tree/mvvm_rxjava)
 
 * 사용기술
 
